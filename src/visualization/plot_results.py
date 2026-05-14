@@ -1,90 +1,213 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
 # -----------------------------------
-# LOAD ANOMALY RESULTS
+# DISPLAY SETTINGS
 # -----------------------------------
+
+pd.set_option(
+    'display.float_format',
+    '{:,.2f}'.format
+)
+
+# -----------------------------------
+# LOAD DATA
+# -----------------------------------
+
+results_path = (
+    "data/results/"
+    "trade_anomaly_results.csv"
+)
 
 df = pd.read_csv(
-    "data/processed/anomaly_results.csv"
+    results_path
 )
 
+print(
+    "\nLoaded Results:\n"
+)
+
+print(df)
+
 # -----------------------------------
-# CREATE FIGURE
+# CREATE OUTPUT DIRECTORY
 # -----------------------------------
 
-plt.figure(figsize=(12, 6))
+os.makedirs(
+    "outputs/plots",
+    exist_ok=True
+)
 
-# -----------------------------------
-# PLOT MISMATCH PERCENTAGE
-# -----------------------------------
+# ===================================
+# CHART 1
+# IMPORTS VS EXPORTS
+# ===================================
 
-normal_data = df[df["anomaly_label"] == "Normal"]
-anomaly_data = df[df["anomaly_label"] == "Anomaly"]
+plt.figure(figsize=(10, 6))
 
-# Plot normal years
 plt.plot(
-    normal_data["refYear"],
-    normal_data["mismatch_percent"],
-    marker="o",
+
+    df["year"],
+
+    df["india_import_value"],
+
+    marker='o',
+
     linewidth=2,
-    label="Normal"
+
+    label="India Imports"
 )
 
-# Plot anomaly years
-plt.scatter(
-    anomaly_data["refYear"],
-    anomaly_data["mismatch_percent"],
-    s=200,
-    marker="X",
-    label="Anomaly"
+plt.plot(
+
+    df["year"],
+
+    df["china_export_value"],
+
+    marker='o',
+
+    linewidth=2,
+
+    label="China Exports"
 )
-
-# -----------------------------------
-# ADD LABELS
-# -----------------------------------
-
-for _, row in df.iterrows():
-
-    plt.text(
-        row["refYear"],
-        row["mismatch_percent"] + 1,
-        f'{row["mismatch_percent"]:.1f}%',
-        ha="center"
-    )
-
-# -----------------------------------
-# CHART FORMATTING
-# -----------------------------------
 
 plt.title(
-    "India-China Trade Mismatch Analysis (HS 8517)",
-    fontsize=16
+    "India-China Telecom Trade"
 )
 
-plt.xlabel("Year", fontsize=12)
+plt.xlabel("Year")
 
-plt.ylabel("Mismatch Percentage", fontsize=12)
-
-plt.xticks(df["refYear"])
-
-plt.grid(True)
+plt.ylabel("Trade Value (USD)")
 
 plt.legend()
 
-# -----------------------------------
-# SAVE PLOT
-# -----------------------------------
+plt.grid(True)
 
-plt.savefig(
-    "data/processed/trade_mismatch_plot.png",
-    bbox_inches="tight"
+chart1_path = (
+    "outputs/plots/"
+    "imports_vs_exports.png"
 )
 
-# -----------------------------------
-# SHOW PLOT
-# -----------------------------------
+plt.savefig(
+    chart1_path,
+    bbox_inches='tight'
+)
 
-plt.show()
+plt.close()
 
-print("\nVisualization Complete.")
+# ===================================
+# CHART 2
+# MISMATCH PERCENT
+# ===================================
+
+plt.figure(figsize=(10, 6))
+
+plt.plot(
+
+    df["year"],
+
+    df["mismatch_percent"],
+
+    marker='o',
+
+    linewidth=2
+)
+
+plt.title(
+    "Mirror Trade Mismatch %"
+)
+
+plt.xlabel("Year")
+
+plt.ylabel("Mismatch %")
+
+plt.grid(True)
+
+chart2_path = (
+    "outputs/plots/"
+    "mismatch_percent.png"
+)
+
+plt.savefig(
+    chart2_path,
+    bbox_inches='tight'
+)
+
+plt.close()
+
+# ===================================
+# CHART 3
+# ANOMALY SCORES
+# ===================================
+
+plt.figure(figsize=(10, 6))
+
+plt.bar(
+
+    df["year"].astype(str),
+
+    df["anomaly_score"]
+)
+
+plt.title(
+    "Trade Anomaly Scores"
+)
+
+plt.xlabel("Year")
+
+plt.ylabel("Anomaly Score")
+
+plt.grid(True)
+
+chart3_path = (
+    "outputs/plots/"
+    "anomaly_scores.png"
+)
+
+plt.savefig(
+    chart3_path,
+    bbox_inches='tight'
+)
+
+plt.close()
+
+# ===================================
+# SHOW ANOMALIES
+# ===================================
+
+anomalies = df[
+    df["anomaly_label"]
+    == "Anomaly"
+]
+
+print(
+    "\nDetected Anomalies:\n"
+)
+
+print(
+
+    anomalies[
+        [
+            "year",
+
+            "mismatch_percent",
+
+            "anomaly_score"
+        ]
+    ]
+)
+
+# ===================================
+# FINAL OUTPUT
+# ===================================
+
+print(
+    "\nPlots Saved:\n"
+)
+
+print(chart1_path)
+
+print(chart2_path)
+
+print(chart3_path)

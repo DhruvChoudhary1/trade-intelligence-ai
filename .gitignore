@@ -72,6 +72,10 @@ dist/
 
 data/raw/
 data/processed/
+data/reference/
+data/results/
+outputs/plots/
+docs/apis/
 
 # -----------------------------------
 # Model Artifacts
