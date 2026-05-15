@@ -1,0 +1,250 @@
+import os
+import pandas as pd
+
+from comtrade_client import fetch_trade_data
+
+# -----------------------------------
+# DISPLAY SETTINGS
+# -----------------------------------
+
+pd.set_option(
+    'display.float_format',
+    '{:,.2f}'.format
+)
+
+# -----------------------------------
+# CONFIG
+# -----------------------------------
+
+IMPORTING_COUNTRY = "India"
+
+EXPORTING_COUNTRY = "China"
+
+HS_CODE = "8517"
+
+START_YEAR = 2020
+
+END_YEAR = 2024
+
+# -----------------------------------
+# GENERATE MONTH LIST
+# -----------------------------------
+
+months = []
+
+for year in range(
+    START_YEAR,
+    END_YEAR + 1
+):
+
+    for month in range(1, 13):
+
+        period = (
+            f"{year}"
+            f"{month:02d}"
+        )
+
+        months.append(period)
+
+# -----------------------------------
+# STORAGE
+# -----------------------------------
+
+results = []
+
+# -----------------------------------
+# PROCESS EACH MONTH
+# -----------------------------------
+
+for period in months:
+
+    print(
+        f"\nProcessing Period: "
+        f"{period}"
+    )
+
+    try:
+
+        # -----------------------------------
+        # IMPORTS
+        # -----------------------------------
+
+        imports_df = fetch_trade_data(
+
+            reporter_country=
+                IMPORTING_COUNTRY,
+
+            partner_country=
+                EXPORTING_COUNTRY,
+
+            period=period,
+
+            flow_code="M",
+
+            cmd_code=HS_CODE,
+
+            freq_code="M"
+        )
+
+        # -----------------------------------
+        # EXPORTS
+        # -----------------------------------
+
+        exports_df = fetch_trade_data(
+
+            reporter_country=
+                EXPORTING_COUNTRY,
+
+            partner_country=
+                IMPORTING_COUNTRY,
+
+            period=period,
+
+            flow_code="X",
+
+            cmd_code=HS_CODE,
+
+            freq_code="M"
+        )
+
+        # -----------------------------------
+        # VALIDATION
+        # -----------------------------------
+
+        if (
+            imports_df is None
+            or imports_df.empty
+            or exports_df is None
+            or exports_df.empty
+        ):
+
+            print(
+                f"Skipping {period}"
+            )
+
+            continue
+
+        # -----------------------------------
+        # VALUES
+        # -----------------------------------
+
+        import_value = float(
+
+            imports_df.iloc[0][
+                "primaryValue"
+            ]
+        )
+
+        export_value = float(
+
+            exports_df.iloc[0][
+                "primaryValue"
+            ]
+        )
+
+        # -----------------------------------
+        # GAP
+        # -----------------------------------
+
+        trade_gap = (
+            import_value
+            -
+            export_value
+        )
+
+        # -----------------------------------
+        # SYMMETRIC MISMATCH
+        # -----------------------------------
+
+        mismatch_percent = (
+
+            abs(trade_gap)
+
+            /
+
+            (
+                (
+                    import_value
+                    +
+                    export_value
+                ) / 2
+            )
+
+        ) * 100
+
+        # -----------------------------------
+        # STORE
+        # -----------------------------------
+
+        results.append({
+
+            "period": period,
+
+            "hs_code": HS_CODE,
+
+            "import_value":
+                import_value,
+
+            "export_value":
+                export_value,
+
+            "trade_gap":
+                trade_gap,
+
+            "mismatch_percent":
+                mismatch_percent
+        })
+
+        print(
+            f"Mismatch: "
+            f"{mismatch_percent:.2f}%"
+        )
+
+    except Exception as e:
+
+        print(
+            f"Error on {period}: {e}"
+        )
+
+# -----------------------------------
+# FINAL DATAFRAME
+# -----------------------------------
+
+monthly_df = pd.DataFrame(
+    results
+)
+
+# -----------------------------------
+# SAVE OUTPUT
+# -----------------------------------
+
+os.makedirs(
+    "data/processed",
+    exist_ok=True
+)
+
+output_path = (
+
+    "data/processed/"
+    "monthly_mirror_analysis.csv"
+)
+
+monthly_df.to_csv(
+    output_path,
+    index=False
+)
+
+# -----------------------------------
+# FINAL OUTPUT
+# -----------------------------------
+
+print(
+    "\nMonthly Analysis Complete.\n"
+)
+
+print(monthly_df.head())
+
+print(
+    f"\nSaved dataset:\n"
+    f"{output_path}"
+)

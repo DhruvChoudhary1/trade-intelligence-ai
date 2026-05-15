@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 # -----------------------------------
 # PAGE CONFIG
@@ -19,8 +20,9 @@ st.set_page_config(
 # -----------------------------------
 
 data_path = (
+
     "data/results/"
-    "trade_anomaly_results.csv"
+    "trade_anomalies_results.csv"
 )
 
 df = pd.read_csv(
@@ -32,13 +34,13 @@ df = pd.read_csv(
 # -----------------------------------
 
 st.title(
-    "Global Trade Intelligence Dashboard"
+    "AI-Powered Trade Intelligence Dashboard"
 )
 
 st.markdown(
     """
-    Bilateral trade mismatch and
-    anomaly detection system using
+    Interactive bilateral trade anomaly
+    detection platform using
     UN Comtrade mirror statistics.
     """
 )
@@ -63,10 +65,23 @@ filtered_df = df[
 ]
 
 # -----------------------------------
-# METRICS
+# PERIOD FORMATTING
+# -----------------------------------
+
+filtered_df["period"] = (
+    filtered_df["period"]
+    .astype(str)
+)
+
+# -----------------------------------
+# LATEST VALUES
 # -----------------------------------
 
 latest = filtered_df.iloc[-1]
+
+# -----------------------------------
+# METRICS
+# -----------------------------------
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -74,14 +89,14 @@ col1.metric(
 
     "Latest Imports",
 
-    f"${latest['india_import_value']:,.0f}"
+    f"${latest['import_value']:,.0f}"
 )
 
 col2.metric(
 
     "Latest Exports",
 
-    f"${latest['china_export_value']:,.0f}"
+    f"${latest['export_value']:,.0f}"
 )
 
 col3.metric(
@@ -99,26 +114,50 @@ col4.metric(
 )
 
 # ===================================
-# CHART 1
 # IMPORTS VS EXPORTS
 # ===================================
 
 st.subheader(
-    "Imports vs Exports"
+    "Monthly Imports vs Exports"
 )
 
-fig1 = px.line(
+fig1 = go.Figure()
 
-    filtered_df,
+fig1.add_trace(
 
-    x="year",
+    go.Scatter(
 
-    y=[
-        "india_import_value",
-        "china_export_value"
-    ],
+        x=filtered_df["period"],
 
-    markers=True
+        y=filtered_df["import_value"],
+
+        mode='lines+markers',
+
+        name='Imports'
+    )
+)
+
+fig1.add_trace(
+
+    go.Scatter(
+
+        x=filtered_df["period"],
+
+        y=filtered_df["export_value"],
+
+        mode='lines+markers',
+
+        name='Exports'
+    )
+)
+
+fig1.update_layout(
+
+    xaxis_title="Period",
+
+    yaxis_title="Trade Value",
+
+    hovermode="x unified"
 )
 
 st.plotly_chart(
@@ -127,8 +166,7 @@ st.plotly_chart(
 )
 
 # ===================================
-# CHART 2
-# MISMATCH %
+# MISMATCH TREND
 # ===================================
 
 st.subheader(
@@ -139,7 +177,7 @@ fig2 = px.line(
 
     filtered_df,
 
-    x="year",
+    x="period",
 
     y="mismatch_percent",
 
@@ -152,23 +190,22 @@ st.plotly_chart(
 )
 
 # ===================================
-# CHART 3
-# ANOMALY SCORES
+# ROLLING MEAN
 # ===================================
 
 st.subheader(
-    "Anomaly Scores"
+    "Rolling Mean of Mismatch %"
 )
 
-fig3 = px.bar(
+fig3 = px.line(
 
     filtered_df,
 
-    x="year",
+    x="period",
 
-    y="anomaly_score",
+    y="rolling_mean",
 
-    color="anomaly_label"
+    markers=True
 )
 
 st.plotly_chart(
@@ -177,7 +214,55 @@ st.plotly_chart(
 )
 
 # ===================================
-# ANOMALY TABLE
+# Z-SCORE ANALYSIS
+# ===================================
+
+st.subheader(
+    "Z-Score Analysis"
+)
+
+fig4 = px.bar(
+
+    filtered_df,
+
+    x="period",
+
+    y="z_score",
+
+    color="anomaly_label"
+)
+
+st.plotly_chart(
+    fig4,
+    use_container_width=True
+)
+
+# ===================================
+# ANOMALY SCORES
+# ===================================
+
+st.subheader(
+    "Anomaly Scores"
+)
+
+fig5 = px.bar(
+
+    filtered_df,
+
+    x="period",
+
+    y="anomaly_score",
+
+    color="anomaly_label"
+)
+
+st.plotly_chart(
+    fig5,
+    use_container_width=True
+)
+
+# ===================================
+# DETECTED ANOMALIES
 # ===================================
 
 st.subheader(
@@ -194,11 +279,11 @@ st.dataframe(
 )
 
 # ===================================
-# FULL DATA
+# FULL DATASET
 # ===================================
 
 st.subheader(
-    "Full Dataset"
+    "Full Monthly Dataset"
 )
 
 st.dataframe(
