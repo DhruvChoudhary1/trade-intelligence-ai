@@ -1,7 +1,8 @@
-import os
 import pandas as pd
 
-from comtrade_client import fetch_trade_data
+from src.data_collection.comtrade_client import (
+    fetch_trade_data
+)
 
 # -----------------------------------
 # DISPLAY SETTINGS
@@ -13,83 +14,71 @@ pd.set_option(
 )
 
 # -----------------------------------
-# CONFIG
+# MAIN SERVICE
 # -----------------------------------
 
-IMPORTING_COUNTRY = "India"
+def run_mirror_analysis(
 
-EXPORTING_COUNTRY = "China"
+    reporter_country,
 
-HS_CODES = {
+    partner_country,
 
-    "8517": "Telecom Equipment",
+    hs_code,
 
-    "8542": "Semiconductors",
+    start_year,
 
-    "8471": "Computers",
+    end_year,
 
-    "8703": "Motor Vehicles",
-
-    "3004": "Pharmaceuticals",
-
-    "7108": "Gold"
-}
-
-START_YEAR = 2020
-
-END_YEAR = 2024
-
-# -----------------------------------
-# GENERATE MONTHS
-# -----------------------------------
-
-months = []
-
-for year in range(
-    START_YEAR,
-    END_YEAR + 1
+    frequency="M"
 ):
 
-    for month in range(1, 13):
+    results = []
 
-        period = (
-            f"{year}"
-            f"{month:02d}"
-        )
+    # -----------------------------------
+    # GENERATE PERIODS
+    # -----------------------------------
 
-        months.append(period)
+    periods = []
 
-# -----------------------------------
-# STORAGE
-# -----------------------------------
+    if frequency == "A":
 
-results = []
+        for year in range(
+            start_year,
+            end_year + 1
+        ):
 
-# -----------------------------------
-# MAIN LOOP
-# -----------------------------------
+            periods.append(
+                str(year)
+            )
 
-for hs_code, sector_name in HS_CODES.items():
+    else:
 
-    print(
-        f"\n{'=' * 60}"
-    )
+        for year in range(
+            start_year,
+            end_year + 1
+        ):
 
-    print(
-        f"\nProcessing HS Code: "
-        f"{hs_code}"
-    )
+            for month in range(1, 13):
 
-    print(
-        f"Sector: {sector_name}\n"
-    )
+                period = (
+                    f"{year}"
+                    f"{month:02d}"
+                )
 
-    for period in months:
+                periods.append(
+                    period
+                )
+
+    # -----------------------------------
+    # PROCESS EACH PERIOD
+    # -----------------------------------
+
+    for period in periods:
 
         try:
 
             print(
-                f"Period: {period}"
+                f"Processing: {period}"
             )
 
             # -----------------------------
@@ -99,10 +88,10 @@ for hs_code, sector_name in HS_CODES.items():
             imports_df = fetch_trade_data(
 
                 reporter_country=
-                    IMPORTING_COUNTRY,
+                    reporter_country,
 
                 partner_country=
-                    EXPORTING_COUNTRY,
+                    partner_country,
 
                 period=period,
 
@@ -110,7 +99,7 @@ for hs_code, sector_name in HS_CODES.items():
 
                 cmd_code=hs_code,
 
-                freq_code="M"
+                freq_code=frequency
             )
 
             # -----------------------------
@@ -120,10 +109,10 @@ for hs_code, sector_name in HS_CODES.items():
             exports_df = fetch_trade_data(
 
                 reporter_country=
-                    EXPORTING_COUNTRY,
+                    partner_country,
 
                 partner_country=
-                    IMPORTING_COUNTRY,
+                    reporter_country,
 
                 period=period,
 
@@ -131,7 +120,7 @@ for hs_code, sector_name in HS_CODES.items():
 
                 cmd_code=hs_code,
 
-                freq_code="M"
+                freq_code=frequency
             )
 
             # -----------------------------
@@ -144,10 +133,6 @@ for hs_code, sector_name in HS_CODES.items():
                 or exports_df is None
                 or exports_df.empty
             ):
-
-                print(
-                    f"Skipping {period}"
-                )
 
                 continue
 
@@ -209,7 +194,11 @@ for hs_code, sector_name in HS_CODES.items():
 
                 "hs_code": hs_code,
 
-                "sector": sector_name,
+                "reporter_country":
+                    reporter_country,
+
+                "partner_country":
+                    partner_country,
 
                 "import_value":
                     import_value,
@@ -224,58 +213,18 @@ for hs_code, sector_name in HS_CODES.items():
                     mismatch_percent
             })
 
-            print(
-                f"Mismatch: "
-                f"{mismatch_percent:.2f}%"
-            )
-
         except Exception as e:
 
             print(
-                f"Error: {e}"
+                f"Error on {period}: {e}"
             )
 
-# -----------------------------------
-# FINAL DATAFRAME
-# -----------------------------------
+    # -----------------------------------
+    # FINAL DATAFRAME
+    # -----------------------------------
 
-final_df = pd.DataFrame(
-    results
-)
+    df = pd.DataFrame(
+        results
+    )
 
-# -----------------------------------
-# SAVE OUTPUT
-# -----------------------------------
-
-os.makedirs(
-    "data/processed",
-    exist_ok=True
-)
-
-output_path = (
-
-    "data/processed/"
-    "monthly_mirror_analysis.csv"
-)
-
-final_df.to_csv(
-    output_path,
-    index=False
-)
-
-# -----------------------------------
-# OUTPUT
-# -----------------------------------
-
-print(
-    "\nAnalysis Complete.\n"
-)
-
-print(
-    final_df.head()
-)
-
-print(
-    f"\nSaved dataset:\n"
-    f"{output_path}"
-)
+    return df
