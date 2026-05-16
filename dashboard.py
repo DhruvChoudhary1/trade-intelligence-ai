@@ -11,9 +11,20 @@ from src.services.anomaly_service import (
     run_anomaly_detection
 )
 
-# -----------------------------------
+from src.services.explanation_service import (
+    generate_explanation
+)
+
+from src.services.hs_service import (
+
+    get_all_hs_options,
+
+    extract_hs_code
+)
+
+# ===================================
 # PAGE CONFIG
-# -----------------------------------
+# ===================================
 
 st.set_page_config(
 
@@ -23,9 +34,65 @@ st.set_page_config(
     layout="wide"
 )
 
+# ===================================
+# LOAD COUNTRY DATA
+# ===================================
+
+reporter_df = pd.read_csv(
+    "data/reference/reporter_countries.csv"
+)
+
+partner_df = pd.read_csv(
+    "data/reference/partner_countries.csv"
+)
+
 # -----------------------------------
+# CLEAN COUNTRY NAMES
+# -----------------------------------
+
+reporter_df["text"] = (
+
+    reporter_df["text"]
+
+    .astype(str)
+
+    .str.strip()
+)
+
+partner_df["text"] = (
+
+    partner_df["text"]
+
+    .astype(str)
+
+    .str.strip()
+)
+
+# ===================================
+# COUNTRY OPTIONS
+# ===================================
+
+reporter_options = sorted(
+
+    reporter_df["text"]
+    .unique()
+)
+
+partner_options = sorted(
+
+    partner_df["text"]
+    .unique()
+)
+
+# ===================================
+# HS OPTIONS
+# ===================================
+
+hs_options = get_all_hs_options()
+
+# ===================================
 # TITLE
-# -----------------------------------
+# ===================================
 
 st.title(
     "AI-Powered Trade Intelligence Platform"
@@ -33,15 +100,15 @@ st.title(
 
 st.markdown(
     """
-    Dynamic mirror trade analytics,
+    Dynamic bilateral trade analytics,
     anomaly detection,
-    and sector intelligence system
-    powered by UN Comtrade.
+    and AI-generated intelligence
+    using UN Comtrade mirror statistics.
     """
 )
 
 # ===================================
-# SIDEBAR INPUTS
+# SIDEBAR
 # ===================================
 
 st.sidebar.header(
@@ -49,37 +116,61 @@ st.sidebar.header(
 )
 
 # -----------------------------------
-# COUNTRY INPUTS
+# REPORTER COUNTRY
 # -----------------------------------
 
-reporter_country = st.sidebar.text_input(
+reporter_country = st.sidebar.selectbox(
 
     "Reporter Country",
 
-    value="India"
+    reporter_options,
+
+    index=reporter_options.index(
+        "India"
+    )
+    if "India" in reporter_options
+    else 0
 )
 
-partner_country = st.sidebar.text_input(
+# -----------------------------------
+# PARTNER COUNTRY
+# -----------------------------------
+
+partner_country = st.sidebar.selectbox(
 
     "Partner Country",
 
-    value="China"
+    partner_options,
+
+    index=partner_options.index(
+        "China"
+    )
+    if "China" in partner_options
+    else 0
+)
+
+# ===================================
+# HS DROPDOWN
+# ===================================
+
+selected_hs = st.sidebar.selectbox(
+
+    "Select Commodity (HS Code)",
+
+    hs_options
 )
 
 # -----------------------------------
-# HS CODE
+# EXTRACT HS CODE
 # -----------------------------------
 
-hs_code = st.sidebar.text_input(
-
-    "HS Code",
-
-    value="8517"
+hs_code = extract_hs_code(
+    selected_hs
 )
 
-# -----------------------------------
+# ===================================
 # FREQUENCY
-# -----------------------------------
+# ===================================
 
 frequency = st.sidebar.selectbox(
 
@@ -88,9 +179,9 @@ frequency = st.sidebar.selectbox(
     ["M", "A"]
 )
 
-# -----------------------------------
+# ===================================
 # YEAR RANGE
-# -----------------------------------
+# ===================================
 
 start_year = st.sidebar.number_input(
 
@@ -128,236 +219,312 @@ run_button = st.sidebar.button(
 
 if run_button:
 
-    with st.spinner(
-        "Fetching trade data..."
-    ):
-
-        # -----------------------------
-        # MIRROR ANALYSIS
-        # -----------------------------
-
-        df = run_mirror_analysis(
-
-            reporter_country=
-                reporter_country,
-
-            partner_country=
-                partner_country,
-
-            hs_code=
-                hs_code,
-
-            start_year=
-                start_year,
-
-            end_year=
-                end_year,
-
-            frequency=
-                frequency
-        )
-
     # -----------------------------------
     # VALIDATION
     # -----------------------------------
 
-    if df.empty:
+    if reporter_country == partner_country:
 
         st.error(
-            "No trade data found."
+            "Reporter and partner "
+            "countries cannot be the same."
         )
 
     else:
 
-        # -----------------------------
-        # ANOMALY DETECTION
-        # -----------------------------
+        # -----------------------------------
+        # FETCH DATA
+        # -----------------------------------
 
-        df = run_anomaly_detection(df)
+        with st.spinner(
+            "Fetching trade data..."
+        ):
 
-        # -----------------------------
-        # SUCCESS MESSAGE
-        # -----------------------------
+            df = run_mirror_analysis(
 
-        st.success(
-            "Analysis Complete"
-        )
+                reporter_country=
+                    reporter_country,
 
-        # ===================================
-        # METRICS
-        # ===================================
+                partner_country=
+                    partner_country,
 
-        latest = df.iloc[-1]
+                hs_code=
+                    hs_code,
 
-        col1, col2, col3, col4 = st.columns(4)
+                start_year=
+                    start_year,
 
-        col1.metric(
+                end_year=
+                    end_year,
 
-            "Imports",
-
-            f"${latest['import_value']:,.0f}"
-        )
-
-        col2.metric(
-
-            "Exports",
-
-            f"${latest['export_value']:,.0f}"
-        )
-
-        col3.metric(
-
-            "Trade Gap",
-
-            f"${latest['trade_gap']:,.0f}"
-        )
-
-        col4.metric(
-
-            "Mismatch %",
-
-            f"{latest['mismatch_percent']:.2f}%"
-        )
-
-        # ===================================
-        # IMPORTS VS EXPORTS
-        # ===================================
-
-        st.subheader(
-            "Imports vs Exports"
-        )
-
-        fig1 = go.Figure()
-
-        fig1.add_trace(
-
-            go.Scatter(
-
-                x=df["period"],
-
-                y=df["import_value"],
-
-                mode='lines+markers',
-
-                name='Imports'
+                frequency=
+                    frequency
             )
-        )
 
-        fig1.add_trace(
+        # -----------------------------------
+        # NO DATA
+        # -----------------------------------
 
-            go.Scatter(
+        if df.empty:
 
-                x=df["period"],
-
-                y=df["export_value"],
-
-                mode='lines+markers',
-
-                name='Exports'
+            st.error(
+                "No trade data found."
             )
-        )
 
-        st.plotly_chart(
-            fig1,
-            use_container_width=True
-        )
+        else:
 
-        # ===================================
-        # MISMATCH TREND
-        # ===================================
+            # -----------------------------------
+            # RUN ANOMALY DETECTION
+            # -----------------------------------
 
-        st.subheader(
-            "Mismatch Trend"
-        )
+            with st.spinner(
+                "Running anomaly detection..."
+            ):
 
-        fig2 = px.line(
+                df = run_anomaly_detection(
+                    df
+                )
 
-            df,
+            # -----------------------------------
+            # AI SUMMARY
+            # -----------------------------------
 
-            x="period",
+            explanation = generate_explanation(
+                df
+            )
 
-            y="mismatch_percent",
+            # -----------------------------------
+            # SUCCESS
+            # -----------------------------------
 
-            markers=True
-        )
+            st.success(
+                "Analysis Complete"
+            )
 
-        st.plotly_chart(
-            fig2,
-            use_container_width=True
-        )
+            # ===================================
+            # QUERY INFO
+            # ===================================
 
-        # ===================================
-        # Z-SCORE
-        # ===================================
+            st.subheader(
+                "Query Details"
+            )
 
-        st.subheader(
-            "Z-Score Analysis"
-        )
+            st.write(
+                f"Reporter: "
+                f"{reporter_country}"
+            )
 
-        fig3 = px.bar(
+            st.write(
+                f"Partner: "
+                f"{partner_country}"
+            )
 
-            df,
+            st.write(
+                f"HS Code: "
+                f"{hs_code}"
+            )
 
-            x="period",
+            st.write(
+                f"Commodity: "
+                f"{selected_hs}"
+            )
 
-            y="z_score",
+            # ===================================
+            # AI SUMMARY
+            # ===================================
 
-            color="anomaly_label"
-        )
+            st.subheader(
+                "AI Intelligence Summary"
+            )
 
-        st.plotly_chart(
-            fig3,
-            use_container_width=True
-        )
+            st.info(
+                explanation
+            )
 
-        # ===================================
-        # ANOMALY SCORES
-        # ===================================
+            # ===================================
+            # METRICS
+            # ===================================
 
-        st.subheader(
-            "Anomaly Scores"
-        )
+            latest = df.iloc[-1]
 
-        fig4 = px.bar(
+            col1, col2, col3, col4 = st.columns(4)
 
-            df,
+            col1.metric(
 
-            x="period",
+                "Imports",
 
-            y="anomaly_score",
+                f"${latest['import_value']:,.0f}"
+            )
 
-            color="anomaly_label"
-        )
+            col2.metric(
 
-        st.plotly_chart(
-            fig4,
-            use_container_width=True
-        )
+                "Exports",
 
-        # ===================================
-        # ANOMALY TABLE
-        # ===================================
+                f"${latest['export_value']:,.0f}"
+            )
 
-        st.subheader(
-            "Detected Anomalies"
-        )
+            col3.metric(
 
-        anomalies = df[
+                "Trade Gap",
 
-            df["anomaly_label"]
-            == "Anomaly"
-        ]
+                f"${latest['trade_gap']:,.0f}"
+            )
 
-        st.dataframe(
-            anomalies
-        )
+            col4.metric(
 
-        # ===================================
-        # FULL DATA
-        # ===================================
+                "Mismatch %",
 
-        st.subheader(
-            "Full Dataset"
-        )
+                f"{latest['mismatch_percent']:.2f}%"
+            )
 
-        st.dataframe(df)
+            # ===================================
+            # IMPORTS VS EXPORTS
+            # ===================================
+
+            st.subheader(
+                "Imports vs Exports"
+            )
+
+            fig1 = go.Figure()
+
+            fig1.add_trace(
+
+                go.Scatter(
+
+                    x=df["period"],
+
+                    y=df["import_value"],
+
+                    mode='lines+markers',
+
+                    name='Imports'
+                )
+            )
+
+            fig1.add_trace(
+
+                go.Scatter(
+
+                    x=df["period"],
+
+                    y=df["export_value"],
+
+                    mode='lines+markers',
+
+                    name='Exports'
+                )
+            )
+
+            fig1.update_layout(
+
+                xaxis_title="Period",
+
+                yaxis_title="Trade Value",
+
+                hovermode="x unified"
+            )
+
+            st.plotly_chart(
+                fig1,
+                use_container_width=True
+            )
+
+            # ===================================
+            # MISMATCH TREND
+            # ===================================
+
+            st.subheader(
+                "Mismatch Trend"
+            )
+
+            fig2 = px.line(
+
+                df,
+
+                x="period",
+
+                y="mismatch_percent",
+
+                markers=True
+            )
+
+            st.plotly_chart(
+                fig2,
+                use_container_width=True
+            )
+
+            # ===================================
+            # Z-SCORE ANALYSIS
+            # ===================================
+
+            st.subheader(
+                "Z-Score Analysis"
+            )
+
+            fig3 = px.bar(
+
+                df,
+
+                x="period",
+
+                y="z_score",
+
+                color="anomaly_label"
+            )
+
+            st.plotly_chart(
+                fig3,
+                use_container_width=True
+            )
+
+            # ===================================
+            # ANOMALY SCORES
+            # ===================================
+
+            st.subheader(
+                "Anomaly Scores"
+            )
+
+            fig4 = px.bar(
+
+                df,
+
+                x="period",
+
+                y="anomaly_score",
+
+                color="anomaly_label"
+            )
+
+            st.plotly_chart(
+                fig4,
+                use_container_width=True
+            )
+
+            # ===================================
+            # DETECTED ANOMALIES
+            # ===================================
+
+            st.subheader(
+                "Detected Anomalies"
+            )
+
+            anomalies = df[
+
+                df["anomaly_label"]
+                == "Anomaly"
+            ]
+
+            st.dataframe(
+                anomalies
+            )
+
+            # ===================================
+            # FULL DATASET
+            # ===================================
+
+            st.subheader(
+                "Full Dataset"
+            )
+
+            st.dataframe(df)

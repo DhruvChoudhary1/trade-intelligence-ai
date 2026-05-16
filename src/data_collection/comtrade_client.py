@@ -1,12 +1,11 @@
-import comtradeapicall
+import requests
 import pandas as pd
 import os
-
 from dotenv import load_dotenv
 
-# -----------------------------------
+# ===================================
 # LOAD ENV VARIABLES
-# -----------------------------------
+# ===================================
 
 load_dotenv()
 
@@ -14,76 +13,86 @@ SUBSCRIPTION_KEY = os.getenv(
     "COMTRADE_API_KEY"
 )
 
-# -----------------------------------
-# LOAD COUNTRY TABLES
-# -----------------------------------
+# ===================================
+# BASE URL
+# ===================================
 
-reporters_df = pd.read_csv(
-    "data/reference/reporter_countries.csv"
+BASE_URL = (
+    "https://comtradeapi.un.org"
 )
 
-partners_df = pd.read_csv(
-    "data/reference/partner_countries.csv"
-)
-
-# -----------------------------------
-# COUNTRY LOOKUP FUNCTIONS
-# -----------------------------------
-
-def get_reporter_code(country_name):
-
-    result = reporters_df[
-        reporters_df["text"]
-        .str.lower()
-        == country_name.lower()
-    ]
-
-    if result.empty:
-
-        return None
-
-    return str(
-        result.iloc[0]["id"]
-    )
-
-# -----------------------------------
-
-def get_partner_code(country_name):
-
-    result = partners_df[
-        partners_df["text"]
-        .str.lower()
-        == country_name.lower()
-    ]
-
-    if result.empty:
-
-        return None
-
-    return str(
-        result.iloc[0]["id"]
-    )
-
-# -----------------------------------
+# ===================================
 # FETCH TRADE DATA
-# -----------------------------------
+# ===================================
 
 def fetch_trade_data(
-    reporter_country,
-    partner_country,
+
+    reporter_code,
+
+    partner_code,
+
     period,
+
     flow_code,
+
     cmd_code,
-    freq_code="A"
+
+    freq_code="M",
+
+    cl_code="HS"
 ):
 
-    reporter_code = get_reporter_code(
-        reporter_country
+    # -----------------------------------
+    # API ENDPOINT
+    # -----------------------------------
+
+    endpoint = (
+
+        f"{BASE_URL}"
+        f"/data/v1/get/"
+        f"C/"
+        f"{freq_code}/"
+        f"{cl_code}"
     )
 
-    partner_code = get_partner_code(
-        partner_country
-    )
+    # -----------------------------------
+    # PARAMETERS
+    # -----------------------------------
+
+    params = {
+
+        "reporterCode":
+            reporter_code,
+
+        "partnerCode":
+            partner_code,
+
+        "period":
+            period,
+
+        "cmdCode":
+            cmd_code,
+
+        "flowCode":
+            flow_code,
+
+        "includeDesc":
+            True
+    }
+
+    # -----------------------------------
+    # HEADERS
+    # -----------------------------------
+
+    headers = {
+
+        "Ocp-Apim-Subscription-Key":
+            SUBSCRIPTION_KEY
+    }
+
+    # -----------------------------------
+    # DEBUG LOGGING
+    # -----------------------------------
 
     print(
         f"\nReporter Code: "
@@ -95,128 +104,113 @@ def fetch_trade_data(
         f"{partner_code}"
     )
 
-    # -----------------------------------
-    # API CALL
-    # -----------------------------------
-
-    df = comtradeapicall.getFinalData(
-
-        SUBSCRIPTION_KEY,
-
-        typeCode='C',
-
-        freqCode=freq_code,
-
-        clCode='HS',
-
-        period=period,
-
-        reporterCode=reporter_code,
-
-        cmdCode=cmd_code,
-
-        flowCode=flow_code,
-
-        partnerCode=partner_code,
-
-        partner2Code=None,
-
-        customsCode=None,
-
-        motCode=None,
-
-        maxRecords=2500,
-
-        format_output='JSON',
-
-        aggregateBy=None,
-
-        breakdownMode='classic',
-
-        countOnly=None,
-
-        includeDesc=True
+    print(
+        f"Period: "
+        f"{period}"
     )
-
-    return df
-
-# -----------------------------------
-# MAIN TEST
-# -----------------------------------
-
-if __name__ == "__main__":
 
     print(
-        "\nFetching Trade Data...\n"
+        f"Flow Code: "
+        f"{flow_code}"
     )
 
-    # China exports to India
-    df = fetch_trade_data(
-
-        reporter_country="China",
-
-        partner_country="India",
-
-        period="2024",
-
-        flow_code="X",
-
-        cmd_code="8517",
-
-        freq_code="A"
+    print(
+        f"Commodity Code: "
+        f"{cmd_code}"
     )
 
     # -----------------------------------
-    # CHECK RESULT
+    # REQUEST
     # -----------------------------------
 
-    if df is None or df.empty:
+    try:
 
-        print(
-            "\nNo trade data retrieved."
+        response = requests.get(
+
+            endpoint,
+
+            params=params,
+
+            headers=headers,
+
+            timeout=120
         )
-
-    else:
-
-        print(
-            "\nTrade Data Retrieved:\n"
-        )
-
-        print(df.head())
-
-        print(
-            f"\nDataset Shape: "
-            f"{df.shape}"
-        )
-
-        print(
-            "\nColumns:\n"
-        )
-
-        print(df.columns)
 
         # -----------------------------------
-        # SAVE CSV
+        # STATUS
         # -----------------------------------
 
-        os.makedirs(
-            "data/raw",
-            exist_ok=True
+        print(
+            f"\nStatus Code: "
+            f"{response.status_code}"
         )
 
-        output_path = (
-            "data/raw/"
-            "china_exports_2024.csv"
+        # -----------------------------------
+        # ERROR HANDLING
+        # -----------------------------------
+
+        if response.status_code != 200:
+
+            print(
+                "\nAPI Error:"
+            )
+
+            print(
+                response.text
+            )
+
+            return pd.DataFrame()
+
+        # -----------------------------------
+        # JSON RESPONSE
+        # -----------------------------------
+
+        data = response.json()
+
+        # -----------------------------------
+        # RAW DEBUG
+        # -----------------------------------
+
+        if "data" not in data:
+
+            print(
+                "\nInvalid API response."
+            )
+
+            print(data)
+
+            return pd.DataFrame()
+
+        # -----------------------------------
+        # EMPTY RESPONSE
+        # -----------------------------------
+
+        if len(data["data"]) == 0:
+
+            print(
+                "\nNo trade data returned."
+            )
+
+            return pd.DataFrame()
+
+        # -----------------------------------
+        # DATAFRAME
+        # -----------------------------------
+
+        df = pd.DataFrame(
+            data["data"]
         )
 
-        df.to_csv(
-            output_path,
-            index=False
-        )
+        return df
+
+    # -----------------------------------
+    # EXCEPTION
+    # -----------------------------------
+
+    except Exception as e:
 
         print(
-            f"\nSaved dataset to:\n"
-            f"{output_path}"
+            f"\nRequest Error: {e}"
         )
 
-        
+        return pd.DataFrame()
