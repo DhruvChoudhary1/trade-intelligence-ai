@@ -1,75 +1,233 @@
 import pandas as pd
 
-# -----------------------------------
-# LOAD COUNTRY FILES
-# -----------------------------------
+# ===================================
+# LOAD MASTER COUNTRY DATASET
+# ===================================
 
-reporter_df = pd.read_csv(
-    "data/reference/reporter_countries.csv"
+countries_df = pd.read_csv(
+    "data/reference/countries.csv"
 )
 
-partner_df = pd.read_csv(
-    "data/reference/partner_countries.csv"
-)
+# ===================================
+# CLEAN DATA
+# ===================================
 
-# -----------------------------------
-# NORMALIZE NAMES
-# -----------------------------------
+countries_df["country_name"] = (
 
-reporter_df["text"] = (
-    reporter_df["text"]
+    countries_df["country_name"]
+
+    .astype(str)
+
     .str.strip()
-    .str.lower()
 )
 
-partner_df["text"] = (
-    partner_df["text"]
+countries_df["iso2"] = (
+
+    countries_df["iso2"]
+
+    .astype(str)
+
     .str.strip()
-    .str.lower()
 )
 
-# -----------------------------------
-# COUNTRY LOOKUP
-# -----------------------------------
+countries_df["iso3"] = (
 
-def get_country_code(country_name):
+    countries_df["iso3"]
+
+    .astype(str)
+
+    .str.strip()
+)
+
+countries_df["comtrade_code"] = (
+
+    countries_df["comtrade_code"]
+
+    .astype(str)
+
+    .str.strip()
+)
+
+# ===================================
+# GET COMTRADE CODE
+# ===================================
+
+def get_country_code(
+    country_name
+):
 
     country_name = (
+
         country_name
+
         .strip()
+
         .lower()
     )
 
-    # -----------------------------
-    # SEARCH REPORTER FILE
-    # -----------------------------
+    match = countries_df[
 
-    reporter_match = reporter_df[
+        countries_df["country_name"]
 
-        reporter_df["text"]
+        .str.lower()
+
         == country_name
     ]
 
-    if not reporter_match.empty:
+    if not match.empty:
 
         return str(
-            reporter_match.iloc[0]["id"]
+            match.iloc[0][
+                "comtrade_code"
+            ]
         )
 
-    # -----------------------------
-    # SEARCH PARTNER FILE
-    # -----------------------------
+    return None
 
-    partner_match = partner_df[
+# ===================================
+# GET ISO3 CODE
+# ===================================
 
-        partner_df["text"]
+def get_country_iso3(
+    country_name
+):
+
+    country_name = (
+
+        country_name
+
+        .strip()
+
+        .lower()
+    )
+
+    match = countries_df[
+
+        countries_df["country_name"]
+
+        .str.lower()
+
         == country_name
     ]
 
-    if not partner_match.empty:
+    if not match.empty:
 
         return str(
-            partner_match.iloc[0]["id"]
+            match.iloc[0][
+                "iso3"
+            ]
+        )
+
+    return None
+
+# ===================================
+# GET ISO2 CODE
+# ===================================
+
+def get_country_iso2(
+    country_name
+):
+
+    country_name = (
+
+        country_name
+
+        .strip()
+
+        .lower()
+    )
+
+    match = countries_df[
+
+        countries_df["country_name"]
+
+        .str.lower()
+
+        == country_name
+    ]
+
+    if not match.empty:
+
+        return str(
+            match.iloc[0][
+                "iso2"
+            ]
+        )
+
+    return None
+
+# ===================================
+# GET COUNTRY NAME
+# ===================================
+
+def get_country_name(
+    comtrade_code
+):
+
+    comtrade_code = str(
+        comtrade_code
+    ).strip()
+
+    match = countries_df[
+
+        countries_df["comtrade_code"]
+        == comtrade_code
+    ]
+
+    if not match.empty:
+
+        return str(
+            match.iloc[0][
+                "country_name"
+            ]
+        )
+
+    return None
+
+# ===================================
+# GET ALL COUNTRY OPTIONS
+# ===================================
+
+def get_all_country_options():
+
+    return sorted(
+
+        countries_df[
+            "country_name"
+        ].unique()
+    )
+
+# ===================================
+# GET COUNTRY RECORD
+# ===================================
+
+def get_country_record(
+    country_name
+):
+
+    country_name = (
+
+        country_name
+
+        .strip()
+
+        .lower()
+    )
+
+    match = countries_df[
+
+        countries_df["country_name"]
+
+        .str.lower()
+
+        == country_name
+    ]
+
+    if not match.empty:
+
+        return (
+            match.iloc[0]
+            .to_dict()
         )
 
     return None
