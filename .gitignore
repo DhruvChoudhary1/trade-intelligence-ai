@@ -76,6 +76,7 @@ data/reference/
 data/results/
 outputs/plots/
 docs/apis/
+data/api_specs/
 
 # -----------------------------------
 # Model Artifacts
